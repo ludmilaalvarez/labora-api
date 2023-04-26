@@ -28,24 +28,14 @@ func main() {
 
 	router := mux.NewRouter()
 
-	router.HandleFunc("/", func(w http.ResponseWriter, router *http.Request) {
-		w.Write([]byte("Hello word"))
-	})
+	router.HandleFunc("/", getUno)
 	router.HandleFunc("/items", getItems).Methods("GET")
 	router.HandleFunc("/items/{id}", getItem).Methods("GET")
 	http.ListenAndServe(":3000", router)
+}
 
-	/* 	direccion := ":8000"
-
-	   	servidor := &http.Server{
-	   		Handler: router,
-	   		Addr:    direccion,
-	   		// Timeouts para evitar que el servidor se quede "colgado" por siempre
-	   		WriteTimeout: 15 * time.Second,
-	   		ReadTimeout:  15 * time.Second,
-	   	}
-	   	fmt.Printf("Escuchando en %s. Presiona CTRL + C para salir", direccion)
-	   	log.Fatal(servidor.ListenAndServe()) */
+func getUno(w http.ResponseWriter, router *http.Request) {
+	w.Write([]byte("Mi primera Api"))
 }
 
 func getItems(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +45,6 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	w.Write(b)
-
 	//json.NewEncoder(w).Encode(items)
 }
 
@@ -69,15 +58,3 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(&Item{})
 }
-
-/*
-route.GET("/subjects/:id", func(c *gin.Context) {
-
-	id := c.Param("id")
-	subjects := subjects[id]
-
-	c.JSON(http.StatusOK, gin.H{
-		"StudentID": id,
-		"Subject":  subjects,
-	}) */
-//})

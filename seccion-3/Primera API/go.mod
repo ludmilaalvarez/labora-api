@@ -1,4 +1,4 @@
-module seccion-3
+module api
 
 go 1.20
 
