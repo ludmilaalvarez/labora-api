@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -31,6 +32,9 @@ func main() {
 	router.HandleFunc("/", getUno)
 	router.HandleFunc("/items", getItems).Methods("GET")
 	router.HandleFunc("/items/{id}", getItem).Methods("GET")
+	router.HandleFunc("/items", createItem).Methods("POST")
+	router.HandleFunc("/items/{id}", updateItem).Methods("PUT")
+	router.HandleFunc("/items/{id}", deleteItem).Methods("DELETE")
 	http.ListenAndServe(":3000", router)
 }
 
@@ -57,4 +61,43 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	json.NewEncoder(w).Encode(&Item{})
+}
+
+func createItem(w http.ResponseWriter, r *http.Request) {
+	reqBody, _ := ioutil.ReadAll(r.Body)
+	var item Item
+	json.Unmarshal(reqBody, &item)
+	items = append(items, item)
+	json.NewEncoder(w).Encode(items)
+}
+
+func updateItem(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var nuevonombre string
+	var encontrado bool
+	json.NewDecoder(r.Body).Decode(&nuevonombre)
+	for index, item := range items {
+		if item.ID == params["id"] {
+			items[index].Name = nuevonombre
+			encontrado = true
+			break
+		}
+	}
+	if !encontrado {
+		var nuevoitem Item
+		nuevoitem = Item{ID: params["id"], Name: nuevonombre}
+		items = append(items, nuevoitem)
+	}
+	json.NewEncoder(w).Encode(items)
+}
+
+func deleteItem(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	for index, item := range items {
+		if item.ID == params["id"] {
+			items = append(items[:index], items[index+1:]...)
+			break
+		}
+	}
+	json.NewEncoder(w).Encode(items)
 }
