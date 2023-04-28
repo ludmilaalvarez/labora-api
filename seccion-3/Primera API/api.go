@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -32,6 +33,7 @@ func main() {
 	router.HandleFunc("/", getUno)
 	router.HandleFunc("/items", getItems).Methods("GET")
 	router.HandleFunc("/items/{id}", getItem).Methods("GET")
+	router.HandleFunc("/items/porNombre/{name}", getName).Methods("GET")
 	router.HandleFunc("/items", createItem).Methods("POST")
 	router.HandleFunc("/items/{id}", updateItem).Methods("PUT")
 	router.HandleFunc("/items/{id}", deleteItem).Methods("DELETE")
@@ -44,12 +46,12 @@ func getUno(w http.ResponseWriter, router *http.Request) {
 
 func getItems(w http.ResponseWriter, r *http.Request) {
 
-	b, err := json.Marshal(items)
+	/* b, err := json.Marshal(items)
 	if err != nil {
 		panic(err)
 	}
-	w.Write(b)
-	//json.NewEncoder(w).Encode(items)
+	w.Write(b) */
+	json.NewEncoder(w).Encode(items)
 }
 
 func getItem(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +63,21 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	json.NewEncoder(w).Encode(&Item{})
+}
+
+func getName(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var encontrado bool = false
+	for _, item := range items {
+		if strings.ToLower(item.Name) == strings.ToLower(params["name"]) {
+			json.NewEncoder(w).Encode(item)
+			encontrado = true
+		}
+	}
+	if !encontrado {
+		json.NewEncoder(w).Encode(&Item{})
+	}
+
 }
 
 func createItem(w http.ResponseWriter, r *http.Request) {
