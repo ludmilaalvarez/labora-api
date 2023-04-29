@@ -2,9 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -12,6 +15,11 @@ import (
 type Item struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+}
+
+type ItemDetails struct {
+	Item
+	Details string `json:"details"`
 }
 
 var items = []Item{
@@ -32,7 +40,8 @@ func main() {
 
 	router.HandleFunc("/", getUno)
 	router.HandleFunc("/items", getItems).Methods("GET")
-	router.HandleFunc("/items/{id}", getItem).Methods("GET")
+	router.HandleFunc("/items/porID/{id}", getItem).Methods("GET")
+	router.HandleFunc("/items/details", getDetails).Methods("GET")
 	router.HandleFunc("/items/porNombre/{name}", getName).Methods("GET")
 	router.HandleFunc("/items", createItem).Methods("POST")
 	router.HandleFunc("/items/{id}", updateItem).Methods("PUT")
@@ -45,7 +54,7 @@ func getUno(w http.ResponseWriter, router *http.Request) {
 }
 
 func getItems(w http.ResponseWriter, r *http.Request) {
-
+	fmt.Println("Llega el request")
 	/* b, err := json.Marshal(items)
 	if err != nil {
 		panic(err)
@@ -63,6 +72,30 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	json.NewEncoder(w).Encode(&Item{})
+}
+
+func getDetails(w http.ResponseWriter, r *http.Request) {
+	//w.Header().Set("Content-Type", "application/json")
+	wg := &sync.WaitGroup{}
+	detailsChannel := make(chan ItemDetails, len(items))
+	var detailedItems []ItemDetails
+	for _, item := range items {
+		wg.Add(1)
+		fmt.Println(item)
+		go func(id string) {
+			itemDetails := getItemDetails(id)
+			defer wg.Done()
+			detailsChannel <- itemDetails
+
+		}(item.ID)
+	}
+	wg.Wait()
+	close(detailsChannel)
+	for details := range detailsChannel {
+		detailedItems = append(detailedItems, details)
+	}
+	json.NewEncoder(w).Encode(detailedItems)
+
 }
 
 func getName(w http.ResponseWriter, r *http.Request) {
@@ -90,9 +123,12 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 
 func updateItem(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
+
 	var nuevonombre string
 	var encontrado bool
+
 	json.NewDecoder(r.Body).Decode(&nuevonombre)
+
 	for index, item := range items {
 		if item.ID == params["id"] {
 			items[index].Name = nuevonombre
@@ -117,4 +153,22 @@ func deleteItem(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	json.NewEncoder(w).Encode(items)
+}
+
+func getItemDetails(id string) ItemDetails {
+	// Simula la obtención de detalles desde una fuente externa con un time.Sleep
+	time.Sleep(100 * time.Millisecond)
+	var foundItem Item
+	for _, item := range items {
+		if item.ID == id {
+			foundItem = item
+			break
+		}
+	}
+	//Obviamente, aquí iria un SELECT si es SQL o un llamado a un servicio externo
+	//pero esta busqueda del item junto con Details, la hacemos a mano.
+	return ItemDetails{
+		Item:    foundItem,
+		Details: fmt.Sprintf("Detalles para el item %s", id),
+	}
 }
