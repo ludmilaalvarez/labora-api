@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +23,8 @@ type ItemDetails struct {
 	Item
 	Details string `json:"details"`
 }
+
+var ErrInvalidInput = errors.New("entrada inválida")
 
 var items = []Item{
 	{ID: "1", Name: "Mauro"},
@@ -54,13 +58,13 @@ func getUno(w http.ResponseWriter, router *http.Request) {
 }
 
 func getItems(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Llega el request")
-	/* b, err := json.Marshal(items)
+
+	b, err := json.Marshal(items)
 	if err != nil {
-		panic(err)
+		fmt.Println(ErrInvalidInput)
 	}
-	w.Write(b) */
-	json.NewEncoder(w).Encode(items)
+	w.Write(b)
+	//json.NewEncoder(w).Encode(items)
 }
 
 func getItem(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +85,7 @@ func getDetails(w http.ResponseWriter, r *http.Request) {
 	var detailedItems []ItemDetails
 	for _, item := range items {
 		wg.Add(1)
-		fmt.Println(item)
+
 		go func(id string) {
 			itemDetails := getItemDetails(id)
 			defer wg.Done()
@@ -146,6 +150,7 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 
 func deleteItem(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
+
 	for index, item := range items {
 		if item.ID == params["id"] {
 			items = append(items[:index], items[index+1:]...)
@@ -156,7 +161,11 @@ func deleteItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func getItemDetails(id string) ItemDetails {
-	// Simula la obtención de detalles desde una fuente externa con un time.Sleep
+
+	if _, err := strconv.Atoi(id); err != nil {
+		fmt.Println(ErrInvalidInput)
+	}
+
 	time.Sleep(100 * time.Millisecond)
 	var foundItem Item
 	for _, item := range items {
@@ -165,8 +174,6 @@ func getItemDetails(id string) ItemDetails {
 			break
 		}
 	}
-	//Obviamente, aquí iria un SELECT si es SQL o un llamado a un servicio externo
-	//pero esta busqueda del item junto con Details, la hacemos a mano.
 	return ItemDetails{
 		Item:    foundItem,
 		Details: fmt.Sprintf("Detalles para el item %s", id),
