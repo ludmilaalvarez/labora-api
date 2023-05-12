@@ -1,4 +1,4 @@
-module main.go
+module Pair-Programming
 
 go 1.20
 
