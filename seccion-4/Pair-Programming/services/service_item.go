@@ -5,7 +5,9 @@ import (
 	"database/sql"
 
 	"fmt"
+	"log"
 )
+
 
 func Get(tipo string, dato string) ([]models.Item, error) {
 
@@ -41,15 +43,42 @@ func Get(tipo string, dato string) ([]models.Item, error) {
 			fmt.Println(err)
 			continue
 		}
+		item.PrecioTotal()
+		
 		items = append(items, item)
 	}
 	return items, nil
 }
 
+func GetItemsPorPagina(pageIndex int, itemsPerPageInt int)([]models.Item, error){
+	var items = make([]models.Item, 0)
+
+	init := itemsPerPageInt * (pageIndex - 1)
+	limit := itemsPerPageInt
+
+	query:="SELECT * FROM items LIMIT $1 OFFSET $2"
+	rows, err := Db.Query(query, limit, init)
+	if err != nil {
+		log.Println(err)
+	}
+	for rows.Next() {
+		var item models.Item
+		err := rows.Scan(&item.Id, &item.CustomerName, &item.OrderDate, &item.Product, &item.Quantity, &item.Price, &item.ItemDetails)
+		if err != nil {
+			log.Println(err)
+		}
+		item.PrecioTotal()
+		
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+
 func CreateNewItem(item models.Item)error {
 
 	insertStatement := `INSERT INTO items (customer_name, order_date, product, quantity, price, details)
-                        VALUES ($1, $2, $3, $4, $5, $6)`
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)`
 	_, err := Db.Exec(insertStatement, item.CustomerName, item.OrderDate, item.Product, item.Quantity, item.Price, item.ItemDetails)
 	return err
 
@@ -88,3 +117,5 @@ func DeleteItem(id int)int64{
 	return count
 
 }
+
+

@@ -20,7 +20,21 @@ func GetItems(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(items)
 }
+func GetItemsPorPagina(w http.ResponseWriter, r *http.Request) {
+	
+	params:=r.URL.Query()
+	page:= params["page"]
+	itemsPerPage:=params["itemsPerPage"]
 
+	pageIndex, _ := strconv.Atoi(page[0])
+	itemsPerPageInt, _ := strconv.Atoi(itemsPerPage[0])
+
+	items, err := services.GetItemsPorPagina(pageIndex, itemsPerPageInt)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	json.NewEncoder(w).Encode(items)
+}
 func GetItem(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -67,6 +81,7 @@ func CreateItem(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newItem)
