@@ -42,9 +42,9 @@ func main() {
 
 	router := mux.NewRouter()
 
-	router.HandleFunc("/", getUno)
-	router.HandleFunc("/items", getItems).Methods("GET")
-	router.HandleFunc("/items/porID/{id}", getItem).Methods("GET")
+//	router.HandleFunc("/", getUno)
+	router.HandleFunc("/items", get("items")).Methods("GET")
+	router.HandleFunc("/items/porID/{id}", get("id")).Methods("GET")
 	router.HandleFunc("/items/details", getDetails).Methods("GET")
 	router.HandleFunc("/items/porNombre/{name}", getName).Methods("GET")
 	router.HandleFunc("/items", createItem).Methods("POST")
@@ -53,7 +53,7 @@ func main() {
 	http.ListenAndServe(":3000", router)
 }
 
-func getUno(w http.ResponseWriter, router *http.Request) {
+/* func getUno(w http.ResponseWriter, router *http.Request) {
 	w.Write([]byte("Mi primera Api"))
 }
 
@@ -115,7 +115,7 @@ func getName(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(&Item{})
 	}
 
-}
+} */
 
 func createItem(w http.ResponseWriter, r *http.Request) {
 	reqBody, _ := ioutil.ReadAll(r.Body)
@@ -178,4 +178,61 @@ func getItemDetails(id string) ItemDetails {
 		Item:    foundItem,
 		Details: fmt.Sprintf("Detalles para el item %s", id),
 	}
+}
+
+func getGeneral(w http.ResponseWriter, r *http.Request)
+
+func get( tipo string, w http.ResponseWriter, r *http.Request){
+	switch tipo{
+	case "items":
+		json.NewEncoder(w).Encode(items)
+	case "item":
+		params := mux.Vars(r)
+		id:= params["id"]
+		json.NewEncoder(w).Encode(buscar(id))
+
+	case "details":
+		wg := &sync.WaitGroup{}
+		detailsChannel := make(chan ItemDetails, len(items))
+		var detailedItems []ItemDetails
+		for _, item := range items {
+			wg.Add(1)
+	
+			go func(id string) {
+				itemDetails := getItemDetails(id)
+				defer wg.Done()
+				detailsChannel <- itemDetails
+	
+			}(item.ID)
+		}
+		wg.Wait()
+		close(detailsChannel)
+		for details := range detailsChannel {
+			detailedItems = append(detailedItems, details)
+		}
+		json.NewEncoder(w).Encode(detailedItems)
+
+	case "name":
+		params := mux.Vars(r)
+		name:= params["name"]
+		json.NewEncoder(w).Encode(buscar(name))
+	
+	}
+
+}
+
+func buscar( dato string) []Item {
+	var encontrado bool = false
+	for _, item := range items {
+		if ( strings.ToLower(item.Name) == strings.ToLower(dato) ) || (item.ID == dato) {
+			var returnable = []Item{item}
+			encontrado = true
+			return returnable
+		}
+	}
+	if !encontrado {
+		return items
+	}
+
+	return items
 }
