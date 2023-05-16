@@ -10,7 +10,7 @@ import (
 // Estructura BankAccount que guarda el saldo de la cuenta
 type BankAccount struct {
 	Balance int
-	mutex sync.Mutex
+	Mutex sync.Mutex
 }
 
 // Método que incrementa el saldo de la cuenta con la cantidad dada
@@ -24,8 +24,9 @@ func (account *BankAccount) Withdraw(amount int) {
 }
 
 // Función que realiza una transacción (depósito o retiro) en la cuenta
-func processTransaction(account *BankAccount, transactionType string, amount int) {
-	(*account).mutex.Lock()
+func processTransaction(account *BankAccount, transactionType string, amount int, wg *sync.WaitGroup ) {
+	defer wg.Done()
+	(*account).Mutex.Lock()
 	switch transactionType {
 	case "deposit":
 		account.Deposit(amount)
@@ -34,17 +35,19 @@ func processTransaction(account *BankAccount, transactionType string, amount int
 		account.Withdraw(amount)
 		fmt.Printf("Retiro: %d. Balance actual: %d\n", amount, account.Balance) // imprime la cantidad retirada y el saldo actual
 	}
-	(*account).mutex.Unlock()
+	(*account).Mutex.Unlock()
 }
 
 func main() {
-	//var wg sync.WaitGroup
+	var wg sync.WaitGroup
 
 	rand.Seed(time.Now().UnixNano()) // semilla para generar números aleatorios
 	account := &BankAccount{Balance: 1000} // inicializa una cuenta con un saldo de 1000
 	fmt.Printf("Balance inicial: %d\n", account.Balance) // imprime el saldo inicial
-
+	
+	
 	for i := 0; i < 5; i++ { // loop para generar 5 transacciones
+		wg.Add(1)
 		transactionType := "" // inicializa el tipo de transacción
 		if i%2 == 0 { // si el índice es par, la transacción es un depósito
 			transactionType = "deposit"
@@ -52,9 +55,13 @@ func main() {
 			transactionType = "withdraw"
 		}
 		amount := rand.Intn(500) + 1 // genera una cantidad aleatoria entre 1 y 500 para la transacción
-		go processTransaction(account, transactionType, amount) // inicia una goroutine para procesar la transacción
+		
+		go processTransaction(account, transactionType, amount, &wg) // inicia una goroutine para procesar la transacción
+		
 	}
-
+	
+	wg.Wait()
 	time.Sleep(3 * time.Second) // espera a que todas las goroutines finalicen
-	fmt.Printf("Balance final: %d\n", account.Balance) // imprime el saldo final
+
+	fmt.Printf("Balance final: %d\n", account.Balance) // imprime el saldo final	
 }
