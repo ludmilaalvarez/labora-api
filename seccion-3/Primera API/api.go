@@ -42,7 +42,7 @@ func main() {
 
 	router := mux.NewRouter()
 
-//	router.HandleFunc("/", getUno)
+	router.HandleFunc("/", getUno)
 	router.HandleFunc("/items", get("items")).Methods("GET")
 	router.HandleFunc("/items/porID/{id}", get("id")).Methods("GET")
 	router.HandleFunc("/items/details", getDetails).Methods("GET")
@@ -53,18 +53,18 @@ func main() {
 	http.ListenAndServe(":3000", router)
 }
 
-/* func getUno(w http.ResponseWriter, router *http.Request) {
+func getUno(w http.ResponseWriter, router *http.Request) {
 	w.Write([]byte("Mi primera Api"))
 }
 
 func getItems(w http.ResponseWriter, r *http.Request) {
 
-	b, err := json.Marshal(items)
+/* 	b, err := json.Marshal(items)
 	if err != nil {
 		fmt.Println(ErrInvalidInput)
 	}
-	w.Write(b)
-	//json.NewEncoder(w).Encode(items)
+	w.Write(b) */
+	json.NewEncoder(w).Encode(items)
 }
 
 func getItem(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +79,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func getDetails(w http.ResponseWriter, r *http.Request) {
-	//w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 	wg := &sync.WaitGroup{}
 	detailsChannel := make(chan ItemDetails, len(items))
 	var detailedItems []ItemDetails
@@ -115,7 +115,7 @@ func getName(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(&Item{})
 	}
 
-} */
+} 
 
 func createItem(w http.ResponseWriter, r *http.Request) {
 	reqBody, _ := ioutil.ReadAll(r.Body)
@@ -180,59 +180,5 @@ func getItemDetails(id string) ItemDetails {
 	}
 }
 
-func getGeneral(w http.ResponseWriter, r *http.Request)
 
-func get( tipo string, w http.ResponseWriter, r *http.Request){
-	switch tipo{
-	case "items":
-		json.NewEncoder(w).Encode(items)
-	case "item":
-		params := mux.Vars(r)
-		id:= params["id"]
-		json.NewEncoder(w).Encode(buscar(id))
 
-	case "details":
-		wg := &sync.WaitGroup{}
-		detailsChannel := make(chan ItemDetails, len(items))
-		var detailedItems []ItemDetails
-		for _, item := range items {
-			wg.Add(1)
-	
-			go func(id string) {
-				itemDetails := getItemDetails(id)
-				defer wg.Done()
-				detailsChannel <- itemDetails
-	
-			}(item.ID)
-		}
-		wg.Wait()
-		close(detailsChannel)
-		for details := range detailsChannel {
-			detailedItems = append(detailedItems, details)
-		}
-		json.NewEncoder(w).Encode(detailedItems)
-
-	case "name":
-		params := mux.Vars(r)
-		name:= params["name"]
-		json.NewEncoder(w).Encode(buscar(name))
-	
-	}
-
-}
-
-func buscar( dato string) []Item {
-	var encontrado bool = false
-	for _, item := range items {
-		if ( strings.ToLower(item.Name) == strings.ToLower(dato) ) || (item.ID == dato) {
-			var returnable = []Item{item}
-			encontrado = true
-			return returnable
-		}
-	}
-	if !encontrado {
-		return items
-	}
-
-	return items
-}
