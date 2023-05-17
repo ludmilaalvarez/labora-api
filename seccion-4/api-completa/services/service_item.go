@@ -6,7 +6,10 @@ import (
 
 	"fmt"
 	"log"
+	"sync"
 )
+
+var Mutex sync.Mutex
 
 
 func Get(tipo string, dato string) ([]models.Item, error) {
@@ -38,11 +41,15 @@ func Get(tipo string, dato string) ([]models.Item, error) {
 
 	for rows.Next() {
 		var item models.Item
-		err := rows.Scan(&item.Id, &item.CustomerName, &item.OrderDate, &item.Product, &item.Quantity, &item.Price, &item.ItemDetails)
+		
+		err := rows.Scan(&item.Id, &item.CustomerName, &item.OrderDate, &item.Product, &item.Quantity, &item.Price, &item.ItemDetails, &item.View)
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
+
+		item.VistasTotal()
+		VistasContador(item.View, item.Id)
 		item.PrecioTotal()
 		
 		items = append(items, item)
@@ -69,7 +76,10 @@ func GetItemsPorPagina(pageIndex int, itemsPerPageInt int)([]models.Item, error)
 		if err != nil {
 			log.Println(err)
 		}
+
 		item.PrecioTotal()
+		item.VistasTotal()
+		VistasContador(item.View, item.Id)
 		
 		items = append(items, item)
 	}
@@ -78,9 +88,10 @@ func GetItemsPorPagina(pageIndex int, itemsPerPageInt int)([]models.Item, error)
 
 
 func CreateNewItem(item models.Item)error {
-	insertStatement := `INSERT INTO items (customer_name, order_date, product, quantity, price, details)
-                        VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err := Db.Exec(insertStatement, item.CustomerName, item.OrderDate, item.Product, item.Quantity, item.Price, item.ItemDetails)
+	insertStatement := `INSERT INTO items (customer_name, order_date, product, quantity, price, details, view)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	item.View=0
+	_, err := Db.Exec(insertStatement, item.CustomerName, item.OrderDate, item.Product, item.Quantity, item.Price, item.ItemDetails, item.View)
 	item.PrecioTotal()
 	return err
 
@@ -121,3 +132,14 @@ func DeleteItem(id int)int64{
 }
 
 
+func VistasContador(vista int, id int){
+	Mutex.Lock()
+	defer Mutex.Unlock()
+	updateStatement:="UPDATE items SET view=$1 WHERE id=$2 "
+	_, err:= Db.Exec(updateStatement, vista, id )
+
+	if err != nil{
+		log.Fatal(err)
+	}
+
+} 

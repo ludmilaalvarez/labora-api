@@ -9,6 +9,7 @@ type Item struct {
 	Price        float64 `json:"price"`
 	ItemDetails  string  `json:"itemdetails"`
 	TotalPrice   float64 `json:"totalprice"`
+	View		 int	 `json:"view"`
 }
 
 
@@ -21,3 +22,7 @@ func (i *Item) PrecioTotal(){
 func PrecioTotal(item Item) float64{
 	 return (item.Price * float64(item.Quantity))
 } */ 
+
+func (i *Item) VistasTotal(){
+	(*i).View++
+}
