@@ -58,9 +58,11 @@ func GetItemsPorPagina(pageIndex int, itemsPerPageInt int)([]models.Item, error)
 
 	query:="SELECT * FROM items LIMIT $1 OFFSET $2"
 	rows, err := Db.Query(query, limit, init)
+
 	if err != nil {
 		log.Println(err)
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var item models.Item
 		err := rows.Scan(&item.Id, &item.CustomerName, &item.OrderDate, &item.Product, &item.Quantity, &item.Price, &item.ItemDetails)
@@ -76,10 +78,10 @@ func GetItemsPorPagina(pageIndex int, itemsPerPageInt int)([]models.Item, error)
 
 
 func CreateNewItem(item models.Item)error {
-
 	insertStatement := `INSERT INTO items (customer_name, order_date, product, quantity, price, details)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)`
+                        VALUES ($1, $2, $3, $4, $5, $6)`
 	_, err := Db.Exec(insertStatement, item.CustomerName, item.OrderDate, item.Product, item.Quantity, item.Price, item.ItemDetails)
+	item.PrecioTotal()
 	return err
 
 }
@@ -90,12 +92,12 @@ func UpdateItem(id int, item models.Item)( int64, error){
 	row, err:= Db.Exec(updateStatement, item.CustomerName, item.OrderDate, item.Product, item.Quantity, item.Price, item.ItemDetails, id )
 
 	if err != nil{
-		fmt.Println(err)
+		log.Fatal(err)
 	}
 
     count, err := row.RowsAffected()
 	  if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	return count, err
 
@@ -108,11 +110,11 @@ func DeleteItem(id int)int64{
 	row, err := Db.Exec(sqlStatement, id)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	count, err := row.RowsAffected()
 	if err != nil {
-	  panic(err)
+		log.Fatal(err)
     }
 	return count
 
