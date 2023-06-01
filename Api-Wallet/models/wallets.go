@@ -7,6 +7,7 @@ type Wallets struct {
 	Person_id string    `json:"national_id"`
 	Date      time.Time `json:"creation_date"`
 	Country   string    `json:"country"`
-	Amount    float64   `json:"amount"`
+	State     string    `json:"state"`
+	Amount    float64   `json:"balance"`
 	Name      string    `json:"name"`
 }

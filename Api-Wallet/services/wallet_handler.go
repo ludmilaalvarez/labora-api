@@ -8,7 +8,7 @@ type WalletService struct { //objeto para poder utilizar las operaciones CRUD de
 	DbHandlers models.DBHandlerWallet
 }
 
-func (s *WalletService) CrearWallet(Datos *models.Datos_Solicitados) int {
+func (s *WalletService) CrearWallet(Datos *models.Datos_Solicitados) (int, error) {
 	return s.DbHandlers.CrearWallet(Datos)
 }
 

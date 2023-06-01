@@ -3,13 +3,14 @@ package models
 import "time"
 
 type Solicitud struct {
-	Id        int       `json:"id"`
-	Person_id string    `json:"national_id"`
-	Date      time.Time `json:"creation_date"`
-	Country   string    `json:"country"`
-	Wallet_id int       `json:"wallet_id"`
-	Status    string    `json:"status"`
-	State     string    `json:"state"`
+	Id               int       `json:"id"`
+	Person_id        string    `json:"national_id"`
+	Date             time.Time `json:"creation_date"`
+	Country          string    `json:"country"`
+	Wallet_id        int       `json:"wallet_id"`
+	Status           string    `json:"status"`
+	State            string    `json:"state"`
+	Type_transaction string    `json:"type_transaction"`
 }
 
 type NamesFound []struct {

@@ -8,6 +8,6 @@ type LogService struct { //objeto para poder utilizar las operaciones CRUD de so
 	DbHandlers models.DBHandlerLog
 }
 
-func (s *LogService) CrearSolicitud(Datos *models.Datos_Solicitados) string {
+func (s *LogService) CrearSolicitud(Datos *models.Datos_Solicitados) (string, error) {
 	return s.DbHandlers.CrearSolicitud(Datos)
 }

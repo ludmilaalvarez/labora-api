@@ -1,12 +1,13 @@
 package controllers
 
 import (
-	"Api-Wallet/db"
+	//	"Api-Wallet/db"
 	"Api-Wallet/models"
 	"Api-Wallet/services"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strconv"
 
 	//	"log"
 	"net/http"
@@ -14,20 +15,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var logService services.LogService
-var walletService services.WalletService
-
-func Init() {
-	walletService = services.WalletService{
-		DbHandlers: &services.PostgresWallet{Db: db.Db},
-	}
-	logService = services.LogService{
-		DbHandlers: &services.PostgresLog{Db: db.Db},
-	}
-}
-
 func CreateWallet(w http.ResponseWriter, r *http.Request) {
-	Init()
 	var Datos models.Datos_Solicitados
 	var resultado string
 
@@ -39,7 +27,7 @@ func CreateWallet(w http.ResponseWriter, r *http.Request) {
 
 	json.Unmarshal(rqBody, &Datos)
 
-	resultado = logService.CrearSolicitud(&Datos)
+	resultado, err = services.LogHandler.CrearSolicitud(&Datos)
 
 	if resultado != "Completado" {
 		w.Write([]byte("Error al crear la billetera"))
@@ -52,14 +40,12 @@ func CreateWallet(w http.ResponseWriter, r *http.Request) {
 }
 
 func StatusWallet(w http.ResponseWriter, r *http.Request) {
-	Init()
-
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
 	Dni := params["national_id"]
 
-	wallet, err := walletService.StatusWallet(string(Dni))
+	wallet, err := services.WalletHandler.StatusWallet(string(Dni))
 
 	if err != nil {
 		fmt.Fprintf(w, "Inserte un item valido")
@@ -67,4 +53,42 @@ func StatusWallet(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(wallet)
 
+}
+
+func Transaction(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var newTransaccion models.Transaction
+
+	rqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Fprintf(w, "Inserte datos validos!")
+		return
+	}
+	json.Unmarshal(rqBody, &newTransaccion)
+	fmt.Println(newTransaccion)
+
+	err = services.CreateTransaction(newTransaccion)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(newTransaccion)
+
+}
+
+func TransactionHistory(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+
+	wallet_id_raw := params["wallet_id"]
+	wallet_id, err := strconv.Atoi(wallet_id_raw)
+	transacciones, err := services.HistorialTransacciones(wallet_id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(transacciones)
 }

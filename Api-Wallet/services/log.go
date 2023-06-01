@@ -5,6 +5,8 @@ import (
 	"Api-Wallet/models"
 	"bytes"
 	"encoding/json"
+
+	//	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,22 +15,13 @@ import (
 	"time"
 )
 
-var walletService WalletService
-
 type PostgresLog struct {
 	Db db.DbConnection
 }
 
-/* func init() {
-/* logService = services.LogService{
-	DbHandlers: &services.PostgresLog{},
-} */
-/* 	walletService = WalletService{
-	DbHandlers: &PostgresWallet{},
-} */
-//}
+var Idwallet int
 
-func Request(Person_id string, country string) models.Respuesta {
+func Request(Person_id string, country string) (models.Respuesta, error) {
 	var client = &http.Client{}
 	var nuevaRespuesta models.Respuesta
 
@@ -68,60 +61,103 @@ func Request(Person_id string, country string) models.Respuesta {
 	}
 	defer resp.Body.Close()
 
-	return nuevaRespuesta
+	return nuevaRespuesta, nil
 }
 
-func (p *PostgresLog) CrearSolicitud(Datos *models.Datos_Solicitados) string {
+func (p *PostgresLog) CrearSolicitud(Datos *models.Datos_Solicitados) (string, error) {
 	var (
 		status    string
 		id        int
 		solicitud models.Solicitud
+	)
+
+	status, err := VerificarStatusScore(Datos)
+
+	solicitud = models.Solicitud{
+		Id:               id,
+		Person_id:        Datos.National_id,
+		Date:             time.Now(),
+		Country:          Datos.Country,
+		Wallet_id:        Idwallet,
+		Status:           status,
+		State:            Datos.State,
+		Type_transaction: "Create Wallet",
+	}
+
+	insertStatement := `INSERT INTO solicitud (state, date, status, person_id, country, wallet_id, type_transaction)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+	_, err = db.Db.Exec(insertStatement, solicitud.State, solicitud.Date, solicitud.Status, solicitud.Person_id, solicitud.Country, solicitud.Wallet_id, solicitud.Type_transaction)
+	if err != nil {
+		log.Println(err)
+	}
+	return status, nil
+
+}
+
+func VerificarStatusScore(Datos *models.Datos_Solicitados) (string, error) {
+	var (
+		status    string
 		comprobar bool
 	)
 
-	Datos_obtenidos := Request(Datos.National_id, Datos.Country)
+	Datos_obtenidos, err := Request(Datos.National_id, Datos.Country)
+
 	if Datos_obtenidos.Check.Summary.NamesFound != nil {
+
 		nombre := Datos_obtenidos.Check.Summary.NamesFound[0]
 		str := fmt.Sprintln(nombre.FirstName, nombre.LastName)
 		comprobar = (strings.ToUpper(Datos.Name) == strings.TrimSpace(strings.ToUpper(str)))
+
 	} else {
-		return "\nDatos no validos!"
+
+		return ("\nDatos no validos!"), err
 	}
 
 	if (Datos_obtenidos.Check.Score == 1) && comprobar {
-		existencia := ComprobarExistencia(Datos.National_id)
+		existencia := ComprobarExistenciaWallet(Datos.National_id)
 
-		if existencia == 0 {
-
-			var walletService WalletService
-			walletService = WalletService{
-				DbHandlers: &PostgresWallet{Db: db.Db},
-			}
+		if existencia {
 			status = "Completado"
-			id = walletService.CrearWallet(Datos)
+			Idwallet, err = WalletHandler.CrearWallet(Datos)
 		} else {
-			return "\nYa existe una billetera con ese Documento."
+			return ("\nYa existe una billetera con ese Documento."), err
 		}
 	} else {
 		status = "Denegado"
 	}
 
-	solicitud = models.Solicitud{Person_id: Datos.National_id, Date: time.Now(), Country: Datos.Country, Status: status, State: Datos.State, Wallet_id: id}
+	return status, nil
 
-	insertStatement := `INSERT INTO solicitud (state, date, status, person_id, country, wallet_id)
-                        VALUES ($1, $2, $3, $4, $5, $6)`
+}
 
-	_, err := db.Db.Exec(insertStatement, solicitud.State, solicitud.Date, solicitud.Status, solicitud.Person_id, solicitud.Country, solicitud.Wallet_id)
+func RegistrarTransaccion(status string, newTransaccion models.Transaction) error {
+
+	wallet_id, country, state := BuscarIDWallet(newTransaccion.Sender_id)
+
+	insertStatement := `INSERT INTO solicitud (state, date, status, person_id, country, wallet_id, type_transaction)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+	_, err := db.Db.Exec(insertStatement, state, time.Now(), status, newTransaccion.Sender_id, country, wallet_id, newTransaccion.Type)
 	if err != nil {
 		log.Println(err)
+		return err
 	}
-	return status
+
+	if newTransaccion.Type == "Transfer" {
+		wallet_id, country, state := BuscarIDWallet(newTransaccion.Receiver_id)
+
+		insertStatement := `INSERT INTO solicitud (state, date, status, person_id, country, wallet_id, type_transaction)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+		_, err := db.Db.Exec(insertStatement, state, time.Now(), status, newTransaccion.Receiver_id, country, wallet_id, "Transfer received")
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+	}
+
+	return nil
 
 }
-
-func CrearWallet(Datos *models.Datos_Solicitados) {
-	panic("unimplemented")
-}
-
-//Como ponerle bien las transacciones
-//Que puedo hacer si alguien ingresa un documento invalido?
