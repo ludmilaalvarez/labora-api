@@ -30,15 +30,9 @@ CREATE TABLE IF NOT EXISTS public.solicitud
 
 CREATE TABLE IF NOT EXISTS public.transaction
 (
-    id SERIAL,
+    sender_id CHARACTER VARYING (20),
+	receiver_id CHARACTER VARYING (20),
     amount double precision NOT NULL,
     type character varying(25) NOT NULL,
-    date date NOT NULL,
-    sender_wallet_id integer,
-    receiver_wallet_id integer,
-    sender_id character varying(25),
-    receiver_id character(25),
-    CONSTRAINT transaction_pkey PRIMARY KEY (id),
-    CONSTRAINT fk_solicitud_wallets FOREIGN KEY (sender_wallet_id) REFERENCES public.wallets (id)
+    date date NOT NULL
 );
-

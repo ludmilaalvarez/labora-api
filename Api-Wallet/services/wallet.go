@@ -2,6 +2,7 @@ package services
 
 import (
 	"Api-Wallet/models"
+	"errors"
 
 	//"errors"
 	"fmt"
@@ -62,21 +63,20 @@ func (p *PostgresWallet) StatusWallet(Dni string) (models.Wallets, error) {
 	return wallet, nil
 }
 
-func ComprobarExistenciaWallet(dni string) bool {
+func WalletExists(dni string) bool {
 	var count int
 	query := "SELECT COUNT(*) FROM wallets WHERE person_id=$1"
 
 	err := db.Db.QueryRow(query, dni).Scan(&count)
-
 	if err != nil {
 		log.Println(err)
 	}
 
-	return count == 0
+	return count == 1
 
 }
 
-func VerificarMonto(person_id string, amount float64) bool {
+func IsValidAmount(person_id string, amount float64) bool {
 	var amountActual float64
 
 	query := "SELECT  amount	FROM wallets where person_id=$1"
@@ -85,9 +85,8 @@ func VerificarMonto(person_id string, amount float64) bool {
 
 	if err != nil {
 		log.Println(err)
-		//return false, err
+
 	}
-	fmt.Println(amountActual >= amount)
 
 	return (amountActual >= amount)
 }
@@ -112,21 +111,64 @@ func BuscarIDWallet(person_id string) (int, string, string) {
 
 }
 
-func BuscarIDPersona(wallet_id int) (string, float64) {
-	var (
-		person_id string
-		amount    float64
-	)
+func BuscarIDPersona(person_id string) float64 {
+	var amount float64
 
-	query := "SELECT  person_id, amount	FROM wallets WHERE id=$1 "
+	query := "SELECT  amount	FROM wallets WHERE person_id=$1 "
 
-	err := db.Db.QueryRow(query, wallet_id).Scan(&person_id, &amount)
+	err := db.Db.QueryRow(query, person_id).Scan(&amount)
 
 	if err != nil {
 		log.Println(err)
 
 	}
 
-	return person_id, amount
+	return amount
+
+}
+
+func DeleteWallet(person_id string) error {
+
+	err := HistoryDeleteWallet(person_id)
+	if err != nil {
+		return err
+	}
+
+	sqlStatement := "DELETE  FROM wallets WHERE person_id=$1"
+	row, err := db.Db.Exec(sqlStatement, person_id)
+	if err != nil {
+		log.Println(err)
+		return errors.New("No se encontro una billetera con ese documento")
+	}
+
+	count, err := row.RowsAffected()
+	if err != nil {
+		return errors.New("No se elimino la billetera")
+	}
+
+	if count == 0 {
+		return errors.New("No se encontro una billetera con ese documento")
+	}
+
+	return nil
+}
+
+func HistoryDeleteWallet(person_id string) error {
+	err := LogDelete(person_id)
+	if err != nil {
+		return err
+	}
+
+	err = TransactionDeleteReceiverSender(person_id)
+	if err != nil {
+		return err
+	}
+
+	err = TransactionUpdateTransfer(person_id)
+	if err != nil {
+		return err
+	}
+
+	return nil
 
 }

@@ -4,7 +4,7 @@ import (
 	"Api-Wallet/models"
 )
 
-type WalletService struct { //objeto para poder utilizar las operaciones CRUD de solicitud
+type WalletService struct {
 	DbHandlers models.DBHandlerWallet
 }
 

@@ -7,7 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"strconv"
+
+	//	"strconv"
 
 	//	"log"
 	"net/http"
@@ -30,7 +31,7 @@ func CreateWallet(w http.ResponseWriter, r *http.Request) {
 	resultado, err = services.LogHandler.CrearSolicitud(&Datos)
 
 	if resultado != "Completado" {
-		w.Write([]byte("Error al crear la billetera"))
+		w.Write([]byte("Error al crear la billetera\n"))
 		w.Write([]byte(resultado))
 
 	} else {
@@ -48,7 +49,7 @@ func StatusWallet(w http.ResponseWriter, r *http.Request) {
 	wallet, err := services.WalletHandler.StatusWallet(string(Dni))
 
 	if err != nil {
-		fmt.Fprintf(w, "Inserte un item valido")
+		w.Write([]byte("Los datos no son validos"))
 		return
 	}
 	json.NewEncoder(w).Encode(wallet)
@@ -62,19 +63,20 @@ func Transaction(w http.ResponseWriter, r *http.Request) {
 
 	rqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		fmt.Fprintf(w, "Inserte datos validos!")
+		w.Write([]byte("Los datos no son validos"))
 		return
 	}
+
 	json.Unmarshal(rqBody, &newTransaccion)
-	fmt.Println(newTransaccion)
 
 	err = services.CreateTransaction(newTransaccion)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(newTransaccion)
+	json.NewEncoder(w).Encode("Transaccion Realizada con exito!")
 
 }
 
@@ -82,8 +84,9 @@ func TransactionHistory(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
-	wallet_id_raw := params["wallet_id"]
-	wallet_id, err := strconv.Atoi(wallet_id_raw)
+	wallet_id := params["wallet_id"]
+	//wallet_id, err := strconv.Atoi(wallet_id_raw)
+
 	transacciones, err := services.HistorialTransacciones(wallet_id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -91,4 +94,19 @@ func TransactionHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(transacciones)
+}
+
+func DeleteWallet(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	person_id := params["national_id"]
+
+	err := services.DeleteWallet(person_id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write([]byte("Billetera eliminada con suceso!"))
+
 }

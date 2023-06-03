@@ -23,10 +23,11 @@ func main() {
 	router.HandleFunc("/WalletStatus/{national_id}", controllers.StatusWallet).Methods("GET")
 	router.HandleFunc("/Transaction", controllers.Transaction).Methods("POST")
 	router.HandleFunc("/TransactionHistory/{wallet_id}", controllers.TransactionHistory).Methods("GET")
+	router.HandleFunc("/DeleteWallet/{national_id}", controllers.DeleteWallet).Methods("DELETE")
 
 	corsOptions := cors.New(cors.Options{
 		AllowedOrigins: []string{"http://localhost:8000", "http://example.com"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+		AllowedMethods: []string{"GET", "POST"},
 	})
 
 	// Agregar el middleware CORS a todas las rutas

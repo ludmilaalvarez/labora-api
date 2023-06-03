@@ -7,7 +7,7 @@ type Solicitud struct {
 	Person_id        string    `json:"national_id"`
 	Date             time.Time `json:"creation_date"`
 	Country          string    `json:"country"`
-	Wallet_id        int       `json:"wallet_id"`
+	Wallet_id        *int      `json:"wallet_id"`
 	Status           string    `json:"status"`
 	State            string    `json:"state"`
 	Type_transaction string    `json:"type_transaction"`
