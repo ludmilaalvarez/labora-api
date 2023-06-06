@@ -127,7 +127,7 @@ func BuscarIDPersona(person_id string) float64 {
 
 }
 
-func DeleteWallet(person_id string) error {
+func (p *PostgresWallet) DeleteWallet(person_id string) error {
 
 	err := HistoryDeleteWallet(person_id)
 	if err != nil {
@@ -135,7 +135,7 @@ func DeleteWallet(person_id string) error {
 	}
 
 	sqlStatement := "DELETE  FROM wallets WHERE person_id=$1"
-	row, err := db.Db.Exec(sqlStatement, person_id)
+	row, err := p.Db.Exec(sqlStatement, person_id)
 	if err != nil {
 		log.Println(err)
 		return errors.New("No se encontro una billetera con ese documento")

@@ -101,7 +101,7 @@ func DeleteWallet(w http.ResponseWriter, r *http.Request) {
 
 	person_id := params["national_id"]
 
-	err := services.DeleteWallet(person_id)
+	err := services.WalletHandler.DeleteWallet(person_id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

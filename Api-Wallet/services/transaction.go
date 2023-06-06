@@ -3,6 +3,7 @@ package services
 import (
 	"Api-Wallet/db"
 	"Api-Wallet/models"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -14,19 +15,26 @@ func CreateTransaction(newTransaction models.Transaction) error {
 	var status string
 
 	tx, err := db.Db.Begin()
+
 	if err != nil {
 		log.Fatal(err)
-		tx.Rollback()
 	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
 
 	if !IsDocumentTransactionValid(newTransaction) {
 		return errors.New("Documentos invalidos")
 	}
 
-	err = RealizarTransaction(newTransaction)
+	err = RealizarTransaction(newTransaction, tx)
 	if err != nil {
 		status = "Rechazado"
-		RecordTransaction(status, newTransaction)
+		RecordTransaction(status, newTransaction, tx)
 
 		return err
 
@@ -34,81 +42,132 @@ func CreateTransaction(newTransaction models.Transaction) error {
 
 	status = "Completado"
 
-	err = RecordTransaction(status, newTransaction)
+	err = RecordTransaction(status, newTransaction, tx)
 	if err != nil {
-		tx.Rollback()
 		return err
 	}
 
-	err = AlmacenarTransaccion(newTransaction)
+	err = AlmacenarTransaccion(newTransaction, tx)
 	if err != nil {
-		tx.Rollback()
+
 		return err
 	}
-	tx.Commit()
 
 	return nil
 }
 
-func RealizarTransaction(newTransaction models.Transaction) error {
+/*
+	 func RealizarTransaction(newTransaction models.Transaction) error {
+		tipo_transaccion := newTransaction.Type
+
+		switch tipo_transaccion {
+		case "deposit":
+
+			err := IncreseAccountAmount(newTransaction.Sender_id, newTransaction.Amount)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+		case "withdrawal":
+
+			if !IsValidAmount(newTransaction.Receiver_id, newTransaction.Amount) {
+				return errors.New("Monto insuficiente")
+			}
+
+			err := ReduceAccountAmount(newTransaction.Receiver_id, newTransaction.Amount)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+
+		case "transfer":
+
+			if !IsValidAmount(newTransaction.Sender_id, newTransaction.Amount) {
+				return errors.New("Monto insuficiente")
+			}
+
+			err := ReduceAccountAmount(newTransaction.Sender_id, newTransaction.Amount)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+
+			err = IncreseAccountAmount(newTransaction.Receiver_id, newTransaction.Amount)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+
+		}
+		return nil
+
+}
+*/
+func RealizarTransaction(newTransaction models.Transaction, tx *sql.Tx) error {
 	tipo_transaccion := newTransaction.Type
 
-	switch tipo_transaccion {
-	case "deposit":
+	acciones := map[string]func() error{
+		"deposit": func() error {
+			err := IncreseAccountAmount(newTransaction.Sender_id, newTransaction.Amount, tx)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			return nil
+		},
+		"withdrawal": func() error {
+			if !IsValidAmount(newTransaction.Receiver_id, newTransaction.Amount) {
+				return errors.New("Monto insuficiente")
+			}
 
-		err := IncreseAccountAmount(newTransaction.Sender_id, newTransaction.Amount)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-	case "withdrawal":
+			err := ReduceAccountAmount(newTransaction.Receiver_id, newTransaction.Amount, tx)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			return nil
+		},
+		"transfer": func() error {
+			if !IsValidAmount(newTransaction.Sender_id, newTransaction.Amount) {
+				return errors.New("Monto insuficiente")
+			}
 
-		if !IsValidAmount(newTransaction.Receiver_id, newTransaction.Amount) {
-			return errors.New("Monto insuficiente")
-		}
+			err := ReduceAccountAmount(newTransaction.Sender_id, newTransaction.Amount, tx)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
 
-		err := ReduceAccountAmount(newTransaction.Receiver_id, newTransaction.Amount)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
+			err = IncreseAccountAmount(newTransaction.Receiver_id, newTransaction.Amount, tx)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
 
-	case "transfer":
-
-		if !IsValidAmount(newTransaction.Sender_id, newTransaction.Amount) {
-			return errors.New("Monto insuficiente")
-		}
-
-		err := ReduceAccountAmount(newTransaction.Sender_id, newTransaction.Amount)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		err = IncreseAccountAmount(newTransaction.Receiver_id, newTransaction.Amount)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
+			return nil
+		},
 	}
-	return nil
 
+	if accion, ok := acciones[tipo_transaccion]; ok {
+		return accion()
+	}
+
+	return errors.New("Tipo de transacción inválido")
 }
 
-func IncreseAccountAmount(receiver_id string, amount float64) error {
+func IncreseAccountAmount(receiver_id string, amount float64, tx *sql.Tx) error {
 
-	return Transaccion(receiver_id, amount)
+	return Transaccion(receiver_id, amount, tx)
 }
 
-func ReduceAccountAmount(sender_id string, amount float64) error {
+func ReduceAccountAmount(sender_id string, amount float64, tx *sql.Tx) error {
 
-	return Transaccion(sender_id, -amount)
+	return Transaccion(sender_id, -amount, tx)
 }
 
-func Transaccion(person_id string, amount float64) error {
+func Transaccion(person_id string, amount float64, tx *sql.Tx) error {
 	updateStatement := "UPDATE wallets SET  amount=amount+$1 WHERE person_id=$2 "
-	_, err := db.Db.Exec(updateStatement, amount, person_id)
+	_, err := tx.Exec(updateStatement, amount, person_id)
 
 	if err != nil {
 		log.Println(err)
@@ -122,11 +181,11 @@ func IsDocumentTransactionValid(newTransaccion models.Transaction) bool { //Inte
 	return WalletExists(newTransaccion.Receiver_id) && WalletExists(newTransaccion.Sender_id)
 }
 
-func AlmacenarTransaccion(newTransaccion models.Transaction) error {
+func AlmacenarTransaccion(newTransaccion models.Transaction, tx *sql.Tx) error {
 
 	switch newTransaccion.Type {
 	case "transfer":
-		err := AlmacenarTransferencia(newTransaccion)
+		err := AlmacenarTransferencia(newTransaccion, tx)
 		if err != nil {
 			log.Println(err)
 			return err
@@ -134,17 +193,17 @@ func AlmacenarTransaccion(newTransaccion models.Transaction) error {
 			return nil
 		}
 	case "withdrawal":
-		err := AlmacenarExtraccion(newTransaccion)
+		err := AlmacenarExtraccion(newTransaccion, tx)
 		return err
 	case "deposit":
-		err := AlmacenarDeposito(newTransaccion)
+		err := AlmacenarDeposito(newTransaccion, tx)
 		return err
 	}
 
 	return nil
 }
 
-func AlmacenarTransferencia(newTransaccion models.Transaction) error {
+func AlmacenarTransferencia(newTransaccion models.Transaction, tx *sql.Tx) error {
 
 	insertStatement := `INSERT INTO transaction (sender_id, receiver_id, amount, type, date)
 	VALUES ($1, $2, $3, $4, $5)`
@@ -156,7 +215,7 @@ func AlmacenarTransferencia(newTransaccion models.Transaction) error {
 	return nil
 }
 
-func AlmacenarExtraccion(newTransaccion models.Transaction) error {
+func AlmacenarExtraccion(newTransaccion models.Transaction, tx *sql.Tx) error {
 	insertStatement := `INSERT INTO transaction (receiver_id, amount, type, date)
 	VALUES ($1, $2, $3, $4)`
 
@@ -168,13 +227,13 @@ func AlmacenarExtraccion(newTransaccion models.Transaction) error {
 	return err
 }
 
-func AlmacenarDeposito(newTransaccion models.Transaction) error {
+func AlmacenarDeposito(newTransaccion models.Transaction, tx *sql.Tx) error {
 	insertStatement := `INSERT INTO transaction (sender_id, amount, type, date)
 			VALUES ($1, $2, $3, $4)`
 
 	fmt.Println(newTransaccion)
 
-	_, err := db.Db.Exec(insertStatement, newTransaccion.Sender_id, newTransaccion.Amount, newTransaccion.Type, time.Now())
+	_, err := tx.Exec(insertStatement, newTransaccion.Sender_id, newTransaccion.Amount, newTransaccion.Type, time.Now())
 
 	if err != nil {
 		log.Println(err)

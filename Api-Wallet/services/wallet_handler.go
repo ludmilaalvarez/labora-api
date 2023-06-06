@@ -15,3 +15,7 @@ func (s *WalletService) CrearWallet(Datos *models.Datos_Solicitados) (int, error
 func (s *WalletService) StatusWallet(Dni string) (models.Wallets, error) {
 	return s.DbHandlers.StatusWallet(Dni)
 }
+
+func (s *WalletService) DeleteWallet(person_id string) error {
+	return s.DbHandlers.DeleteWallet(person_id)
+}

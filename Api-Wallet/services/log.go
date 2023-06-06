@@ -4,8 +4,10 @@ import (
 	"Api-Wallet/db"
 	"Api-Wallet/models"
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"os"
 
 	//	"errors"
 	"fmt"
@@ -14,6 +16,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 type PostgresLog struct {
@@ -27,7 +31,12 @@ func Request(Person_id string, country string) (models.Respuesta, error) {
 	var nuevaRespuesta models.Respuesta
 
 	API := "https://api.checks.truora.com/v1/checks/"
-	TOKEN := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50X2lkIjoiIiwiYWRkaXRpb25hbF9kYXRhIjoie30iLCJjbGllbnRfaWQiOiJUQ0k4YWJkOWE1ZGFmNzM1NGQ1YjVlZjVjYTI4MjJhMjA3OSIsImV4cCI6MzI2MTY4OTIwMiwiZ3JhbnQiOiIiLCJpYXQiOjE2ODQ4ODkyMDIsImlzcyI6Imh0dHBzOi8vY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb20vdXMtZWFzdC0xX3hUSGxqU1d2RCIsImp0aSI6IjM2YTZiNGJlLTM3NTUtNGQzMC04ZTM0LTNmZDMyOGI3ZDk3NCIsImtleV9uYW1lIjoidHJ1Y29kZSIsImtleV90eXBlIjoiYmFja2VuZCIsInVzZXJuYW1lIjoidHJ1b3JhdGVhbW5ld3Byb2QtdHJ1Y29kZSJ9.PuE6cS6938PbQz_4qMLySs9dr3fywFqqGdfcF6Suw0U"
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error al cargar el archivo .env")
+	}
+
+	Token := os.Getenv("TOKEN")
 
 	body, _ := json.Marshal(map[string]string{
 		"national_id":     Person_id,
@@ -43,7 +52,7 @@ func Request(Person_id string, country string) (models.Respuesta, error) {
 		log.Println(err)
 	}
 
-	req.Header.Add("Truora-API-Key", TOKEN)
+	req.Header.Add("Truora-API-Key", Token)
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -140,17 +149,18 @@ func VerificarStatusScore(Datos *models.Datos_Solicitados) (string, error) {
 	return status, nil
 
 }
-func RecordTransaction(status string, newTransaccion models.Transaction) error {
+
+func RecordTransaction(status string, newTransaccion models.Transaction, tx *sql.Tx) error {
 	tipo_transaccion := newTransaccion.Type
 
-	transactionFuncMap := map[string]func(string, models.Transaction) error{
+	transactionFuncMap := map[string]func(string, models.Transaction, *sql.Tx) error{
 		"deposit":    RecordTransactionSender,
 		"withdrawal": RecordTransactionReceiver,
 		"transfer":   RecordTransactionSenderReceiver,
 	}
 
 	if transaccionFunc, ok := transactionFuncMap[tipo_transaccion]; ok {
-		err := transaccionFunc(status, newTransaccion)
+		err := transaccionFunc(status, newTransaccion, tx)
 		if err != nil {
 			log.Println(err)
 			return err
@@ -162,14 +172,14 @@ func RecordTransaction(status string, newTransaccion models.Transaction) error {
 	return nil
 }
 
-func RecordTransactionSenderReceiver(status string, newTransaccion models.Transaction) error {
-	err := RecordTransactionSender(status, newTransaccion)
+func RecordTransactionSenderReceiver(status string, newTransaccion models.Transaction, tx *sql.Tx) error {
+	err := RecordTransactionSender(status, newTransaccion, tx)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
 
-	err = RecordTransactionReceiver(status, newTransaccion)
+	err = RecordTransactionReceiver(status, newTransaccion, tx)
 	if err != nil {
 		log.Println(err)
 		return err
@@ -178,14 +188,14 @@ func RecordTransactionSenderReceiver(status string, newTransaccion models.Transa
 
 }
 
-func RecordTransactionSender(status string, newTransaccion models.Transaction) error {
+func RecordTransactionSender(status string, newTransaccion models.Transaction, tx *sql.Tx) error {
 
 	wallet_id, country, state := BuscarIDWallet(newTransaccion.Sender_id)
 
 	insertStatement := `INSERT INTO solicitud (state, date, status, person_id, country, wallet_id, type_transaction)
                         VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
-	_, err := db.Db.Exec(insertStatement, state, time.Now(), status, newTransaccion.Sender_id, country, wallet_id, newTransaccion.Type)
+	_, err := tx.Exec(insertStatement, state, time.Now(), status, newTransaccion.Sender_id, country, wallet_id, newTransaccion.Type)
 	if err != nil {
 		log.Println(err)
 		return err
@@ -194,14 +204,14 @@ func RecordTransactionSender(status string, newTransaccion models.Transaction) e
 
 }
 
-func RecordTransactionReceiver(status string, newTransaccion models.Transaction) error {
+func RecordTransactionReceiver(status string, newTransaccion models.Transaction, tx *sql.Tx) error {
 
 	wallet_id, country, state := BuscarIDWallet(newTransaccion.Receiver_id)
 
 	insertStatement := `INSERT INTO solicitud (state, date, status, person_id, country, wallet_id, type_transaction)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
-	_, err := db.Db.Exec(insertStatement, state, time.Now(), status, newTransaccion.Receiver_id, country, wallet_id, newTransaccion.Type)
+	_, err := tx.Exec(insertStatement, state, time.Now(), status, newTransaccion.Receiver_id, country, wallet_id, newTransaccion.Type)
 	if err != nil {
 		log.Println(err)
 		return err
