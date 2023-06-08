@@ -15,11 +15,12 @@ type DbConnection struct {
 
 var Db DbConnection
 
-const (
-	host   = "localhost"
-	port   = 5432
-	dbName = "labora-wallet"
-	user   = "postgres"
+var (
+	host     = os.Getenv("HostDB")
+	port     = os.Getenv("PortDB")
+	dbName   = os.Getenv("DbName")
+	user     = os.Getenv("UserDB")
+	password = os.Getenv("PasswordDB")
 )
 
 var dbConn *sql.DB
@@ -30,9 +31,8 @@ func EstablishDbConnection() {
 		log.Fatal("Error al cargar el archivo .env")
 	}
 
-	password := os.Getenv("PasswordDB")
 	psqlInfo :=
-		fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbName)
+		fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbName)
 	dbConn, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		log.Fatal(err)
