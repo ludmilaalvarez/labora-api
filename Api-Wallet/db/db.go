@@ -15,14 +15,6 @@ type DbConnection struct {
 
 var Db DbConnection
 
-var (
-	host     = os.Getenv("HostDB")
-	port     = os.Getenv("PortDB")
-	dbName   = os.Getenv("DbName")
-	user     = os.Getenv("UserDB")
-	password = os.Getenv("PasswordDB")
-)
-
 var dbConn *sql.DB
 
 func EstablishDbConnection() {
@@ -30,6 +22,14 @@ func EstablishDbConnection() {
 	if err != nil {
 		log.Fatal("Error al cargar el archivo .env")
 	}
+
+	var (
+		host     = os.Getenv("HostDB")
+		port     = os.Getenv("PortDB")
+		dbName   = os.Getenv("DbName")
+		user     = os.Getenv("UserDB")
+		password = os.Getenv("PasswordDB")
+	)
 
 	psqlInfo :=
 		fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbName)
